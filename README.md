@@ -31,17 +31,17 @@ In this way, the script should behave consistently on every system having `bash`
 
 Also, when leaving focus workspace without exiting focus mode (switching to another workspace/output as usual), the bar should:
 
-- automatically and temporarily be [restored](#polybar-module) as [option](#polybar-configuration) 
+- automatically and temporarily be [restored](#polybar-module) as [option](#polybar-configuration)
 - automatically be [hidden](#polybar-module) when switching back to focus workspace/output
-- automatically and definitely [restored](#polybar-module) when leaving quiet mode
+- automatically and definitely [restored](#polybar-module) when definitely leaving focus mode
 
-About the focusd window, it should:
+About the focused window, it should:
 
 - be restored to the original workspace, even if it does not exist anymore (window was the only one in original workspace)
 - be restored to the correct workspace, even if it uses strange/weird names
   - this, hopefully, works
 
-Again, to enter/exit quiet mode, to switch from/to focus worksapce should need only one [key binding](#i3wm-configuration).
+Again, to enter/exit focus mode, to switch from/to focus worksapce should need only one [key binding](#i3wm-configuration).
 
 ### i3wm configuration
 
@@ -101,7 +101,7 @@ With this configuration, the following behavior is offered:
 - switching out of focused workspace without exiting focus mode (switching to another workspace/output as usual):
   - bar is automatically and temporarily [restored](#polybar-module)
   - switching back to focus workspace/output automatically [hides](#polybar-module) again the bar
-- bar is automatically restored when exiting focus mode
+- bar is automatically restored when definitely exiting focus mode
 
 This method introduces a noticeable lag.
 
@@ -109,8 +109,8 @@ The second, simpler, way:
 
 - solves the lag [known issue](#known-issues)
   - but when switching to another workspace/output as usual, the bar is not automatically and temporarily restored (only restores the bar when exiting focus mode)
-  
-I use the second alternative: much lighter and fast.
+
+I use the second method: much lighter and fast.
 
 A third alternative could be to activate focus mode when launching a specific application, as a PDF viewer.
 
@@ -120,7 +120,7 @@ At the moment the support is very primitive and, most likely, will remain this w
 
 To configure it, in `i3wm-quiet`:
 
-- in `enable_focus_mode()`, add one of the following example lines:
+- at the end of `enable_focus_mode()`, add one of the following example lines:
 
 ```sh
   # Primitive output support
@@ -128,14 +128,9 @@ To configure it, in `i3wm-quiet`:
   #i3-msg move workspace to output right
 ```
 
-- in `disable_focus_mode()`
-
-```sh
-  # Primitive output support
-  #i3-msg move workspace to output left
-```
-
 Adapt them to the personal configuration.
+
+Not sure why, on multiple monitors configuration when moving the focused workspace on different output, when leaving focus mode, the window is correctly restored in the right workspace, but the now empty focus workspace is not automatically closed (see [known issues](#known-issues)).
 
 ### Dependencies
 
@@ -147,13 +142,13 @@ Adapt them to the personal configuration.
   - first method: using [Polybar module](#polybar-module) introduces a noticeable lag
   - second method: to use `polybar-msg cmd toggle` directly in `i3wm-focus` is very quick, but
     - to maintain the script simple, the bar is restored only leaving focus mode
-    
+
 - very primitive outputs support
   - when the [output](#output-configuration) support is enabled and the focus workspace is then moved to another output
     - when leaving focus mode
       - the focus workspace is not automatically closed
         - /shrug
-        
+
 - when exiting focus mode, the window does not automatically goes back to original stack position. To restore an i3 [layout](https://i3wm.org/docs/layout-saving.html) is not straightforward and not a priority for this project (unless a `PR` will do it).
 
 - unable to split the script in proper script file + configuration file:
@@ -162,7 +157,7 @@ Adapt them to the personal configuration.
 
 - a temp file (`/tmp/i3-focus.tmp`) holds the original workspace name
 
-- yes, screenshot taken with scrot... 
+- yes, screenshot taken with scrot...
 
 ### Inspiration
 
