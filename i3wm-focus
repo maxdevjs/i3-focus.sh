@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+# https://github.com/maxdevjs/i3-focus.sh
+
+focus_number="99"
+width_perc="50"
+max_width="800"
+height_perc="90"
+max_height="1024"
+
+enable_focus_mode() {
+  w=$(( $2 * width_perc / 100 ))
+  h=$(( $3 * height_perc / 100 ))
+  wu=$(( w < max_width ? w : max_width ))
+  hu=$(( h < max_height ? h : max_height ))
+
+  workspace_focus_name=$"${focus_number}:${1}"
+
+  i3-msg "move container to workspace \"${workspace_focus_name}\" workspace \"${workspace_focus_name}\" floating enable"
+  i3-msg resize set width "${wu}" && i3-msg resize set height "${hu}" && i3-msg move position center
+
+  # Simple Polybar support
+  polybar-msg cmd toggle
+}
+
+disable_focus_mode() {
+  workspace_original_name=$(</tmp/i3-focus.tmp)
+  i3-msg "move container to workspace \"${workspace_original_name}\" workspace \"${workspace_original_name}\" floating disable"
+  rm /tmp/i3-focus.tmp
+
+  # Simple Polybar support
+  polybar-msg cmd toggle
+}
+
+main() {
+  workspace_current_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
+  if [[ $workspace_current_name =~ "99" ]]
+  then
+    # Already focused. Going to exit from this state
+    disable_focus_mode
+  else
+    # Out of focus, going back to it
+    workspaces=$(i3-msg -t get_workspaces)
+    workspace_current_num=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).num')
+    if [[ ! $workspace_current_num =~ "99" && $workspaces =~ "99" ]]
+    then
+      workspace_focus_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.num==99).name')
+      i3-msg workspace $workspace_focus_name
+    else
+      # Activating focus
+      workspace_original_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
+      echo $workspace_original_name > /tmp/i3-focus.tmp
+      enable_focus_mode \
+      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name') \
+      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.width') \
+      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.height')
+    fi
+  fi
+}
+
+main
+
+
+
+
+
+
+

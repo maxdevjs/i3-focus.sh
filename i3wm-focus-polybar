@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# https://github.com/maxdevjs/i3-focus.sh
+
+main() {
+  workspace_current_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
+  if [[ $workspace_current_name =~ "99" ]]
+  then
+    $(polybar-msg cmd hide)
+  else
+    $(polybar-msg cmd show)
+  fi
+}
+
+main
+
+
+
+
+
+
+
