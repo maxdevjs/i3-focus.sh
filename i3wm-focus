@@ -51,9 +51,9 @@ main() {
       workspace_original_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
       echo $workspace_original_name > /tmp/i3-focus.tmp
       enable_focus_mode \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name') \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.width') \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.height')
+      "$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')" \
+      "$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.width')" \
+      "$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.height')"
     fi
   fi
 }
