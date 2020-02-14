@@ -8,61 +8,126 @@ max_width="800"
 height_perc="90"
 max_height="1024"
 
-enable_focus_mode() {
-  w=$(( $2 * width_perc / 100 ))
-  h=$(( $3 * height_perc / 100 ))
+activate_focus_mode() {
+
+  # Gymnic to make it work using keybinding
+  # https://stackoverflow.com/a/4774063
+  # Retrieves the script absolute path (needed by "append_layout")
+  dir="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+
+  # Calculates window size for "focus mode".
+  w=$(( $1 * width_perc / 100 ))
+  h=$(( $2 * height_perc / 100 ))
+  # (with a couple restraints).
   wu=$(( w < max_width ? w : max_width ))
   hu=$(( h < max_height ? h : max_height ))
 
-  workspace_focus_name=$"${focus_number}:${1}"
+  # Marks "original window", the one we want to send to "focus mode", for successive reference.
+  i3-msg mark _focus_container_
+  
+  # Creates the "placeholder" that will be referenced to restore "pre focus (original) state".
+  i3-msg append_layout "${dir}"/placeholder.json
+  
+  # Swaps "placeholder" with "original window":
+  # this way we wll be able to restore "original window" in "original position"
+  # when deactivating "focus mode".
+  i3-msg swap container with mark "_placeholder_"
 
-  i3-msg "move container to workspace \"${workspace_focus_name}\" workspace \"${workspace_focus_name}\" floating enable"
-  i3-msg resize set width "${wu}" && i3-msg resize set height "${hu}" && i3-msg move position center
+  # Enters "focus mode":
+  # sends "original window" to "focus workspace" and focuses it.
+  i3-msg [con_mark="_focus_container_"] move to workspace "${focus_number}" && i3-msg [con_mark="_focus_container_"] focus
+  # Sets "original window" as floating and resizes it.
+  i3-msg floating enable && i3-msg resize set width "${wu}" && i3-msg resize set height "${hu}" && i3-msg move position center
 
-  # Simple Polybar support
-  polybar-msg cmd toggle
+  # Shows/hides bar(s) when deactivating/activating "focus mode". 
+  # Uncomment the next line to activate it.
+  #polybar-msg cmd toggle
+  #
+  # This is a very simple alternative to the creation of a custom Polybar module.
+  # If we prefer to create a custom Polybar module, "i3wm-focus-polybar" script is provided.
+  # Instructions in README.
 }
 
-disable_focus_mode() {
-  workspace_original_name=$(</tmp/i3-focus.tmp)
-  i3-msg "move container to workspace \"${workspace_original_name}\" workspace \"${workspace_original_name}\" floating disable"
-  rm /tmp/i3-focus.tmp
+deactivate_focus_mode() {
+  # Switches to "placeholder" ("original position").
+  i3-msg [con_mark="_placeholder_"] focus
+  # Swaps "placeholder" with "original window" (puts back "original window" in "original position").
+  i3-msg swap container with mark "_focus_container_" && i3-msg [con_mark="_focus_container_"] focus
+  
+  # Cleanings.
+  # "Placeholder" is not needed anymore.
+  i3-msg [con_mark="_placeholder_"] kill
+  # Marks are not needed anymore.
+  i3-msg unmark "_focus_container_" && i3-msg unmark "_placeholder_"
 
-  # Simple Polybar support
-  polybar-msg cmd toggle
+  # Shows/hides bar(s) when deactivating/activating "focus mode". 
+  # Uncomment the next line to activate it.
+  #polybar-msg cmd toggle
+  #
+  # This is a very simple alternative to the creation of a custom Polybar module.
+  # If we prefer to create a custom Polybar module, "i3wm-focus-polybar" script is provided.
+  # Instructions in README.
 }
 
 main() {
-  workspace_current_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
-  if [[ $workspace_current_name =~ "99" ]]
+  # Retrieves "current workspace" num.
+  workspace_current_num=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).num')
+  
+  # "Focus mode" is already active, currently we are in the "focus workspace". 
+  # Meaning that we wish to exit from this state.
+  if [[ $workspace_current_num =~ "99" ]]
   then
-    # Already focused. Going to exit from this state
-    disable_focus_mode
+    deactivate_focus_mode
+  # Otherwise, we have a few possibilities.
   else
-    # Out of focus, going back to it
+    # Retrieves currently existing marks.
+    marks=$(i3-msg -t get_marks)
+    # Retrieves all the existing workspaces.
     workspaces=$(i3-msg -t get_workspaces)
-    workspace_current_num=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).num')
-    if [[ ! $workspace_current_num =~ "99" && $workspaces =~ "99" ]]
+    
+    # Edge case. Refer to comments inside next "if" block.
+    # This could probably be ignored, but it is nice to address it too.
+    #
+    # "Focus mode" is active, but we "accidentally" already closed "original window"
+    # (could happen: application can crash, terminal exit, we close it on "purpose" just because we can, ...).
+    # Basically does not exist anymore a "focus_container" mark (mark for "original window"),
+    # but still exists a "_placeholder_" mark ("placeholder" still exists in "original workspace"), and most likely "focus workspace" is still open (visible).
+    if [[  ! $workspace_current_num =~ "${focus_number}" && $workspaces =~ "${focus_number}" && ! "$marks" =~ "_focus_container_" && "$marks" =~ "_placeholder_" ]]
     then
-      workspace_focus_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.num==99).name')
-      i3-msg workspace $workspace_focus_name
+      # Restores "pre focus state" (switches to "original workspace", kills "placeholder").
+      #
+      # "Original workspace" is restored even if "original window" closes.
+      # In a couple edge cases, we could remain "stuck" in/with an empty, but still open (visible), "focus workspace"
+      # and we should exit from it manually.
+      #
+      # This is especially useful in multi output configurations.
+      # Use case. If we: 
+      # - close the "original window"
+      # - switch to another output
+      # then the "focus workspace" in previous output would remain open
+      # and, again, we should "close" it manually.
+      #
+      # Summarizing: we just use our single keybinding to solve everything
+      # and go back to "original workspace" :)
+      i3-msg [con_mark="_placeholder_"] focus
+      i3-msg [con_mark="_placeholder_"] kill
+
+    # "Focus mode" is already active ("focus workspace" exists among workspaces),
+    # but we are currently in a different workspace.
+    elif [[ ! $workspace_current_num =~ "${focus_number}" && $workspaces =~ "${focus_number}" ]]
+    then
+      # We go back to "focus workspace".
+      i3-msg workspace "${focus_number}"
+    
+    # "Focus mode" is not currently active.  
     else
-      # Activating focus
-      workspace_original_name=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name')
-      echo $workspace_original_name > /tmp/i3-focus.tmp
-      enable_focus_mode \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).name') \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.width') \
-      $(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.height')
+      # Activates "focus mode".
+      activate_focus_mode \
+        "$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.width')" \
+        "$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==true).rect.height')"
     fi
   fi
 }
 
+# Calls our main logic.
 main
-
-
-
-
-
-
-
